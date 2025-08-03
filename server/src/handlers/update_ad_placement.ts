@@ -1,16 +1,47 @@
 
+import { db } from '../db';
+import { adPlacementsTable } from '../db/schema';
 import { type UpdateAdPlacementInput, type AdPlacement } from '../schema';
+import { eq } from 'drizzle-orm';
 
-export async function updateAdPlacement(input: UpdateAdPlacementInput): Promise<AdPlacement> {
-  // This is a placeholder declaration! Real code should be implemented here.
-  // The goal of this handler is updating ad placement information.
-  return Promise.resolve({
-    id: input.id,
-    name: input.name || 'placeholder_name',
-    placement_type: input.placement_type || 'banner',
-    ad_script: input.ad_script || 'placeholder_script',
-    is_active: input.is_active !== undefined ? input.is_active : true,
-    created_at: new Date(),
-    updated_at: new Date()
-  } as AdPlacement);
-}
+export const updateAdPlacement = async (input: UpdateAdPlacementInput): Promise<AdPlacement> => {
+  try {
+    // Build update object with only provided fields
+    const updateData: any = {};
+    
+    if (input.name !== undefined) {
+      updateData.name = input.name;
+    }
+    
+    if (input.placement_type !== undefined) {
+      updateData.placement_type = input.placement_type;
+    }
+    
+    if (input.ad_script !== undefined) {
+      updateData.ad_script = input.ad_script;
+    }
+    
+    if (input.is_active !== undefined) {
+      updateData.is_active = input.is_active;
+    }
+
+    // Always update the updated_at timestamp
+    updateData.updated_at = new Date();
+
+    // Update the ad placement record
+    const result = await db.update(adPlacementsTable)
+      .set(updateData)
+      .where(eq(adPlacementsTable.id, input.id))
+      .returning()
+      .execute();
+
+    if (result.length === 0) {
+      throw new Error(`Ad placement with id ${input.id} not found`);
+    }
+
+    return result[0];
+  } catch (error) {
+    console.error('Ad placement update failed:', error);
+    throw error;
+  }
+};

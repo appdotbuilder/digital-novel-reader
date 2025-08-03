@@ -1,13 +1,22 @@
 
+import { db } from '../db';
+import { genresTable } from '../db/schema';
 import { type CreateGenreInput, type Genre } from '../schema';
 
-export async function createGenre(input: CreateGenreInput): Promise<Genre> {
-  // This is a placeholder declaration! Real code should be implemented here.
-  // The goal of this handler is creating a new genre in the database.
-  return Promise.resolve({
-    id: 0,
-    name: input.name,
-    description: input.description || null,
-    created_at: new Date()
-  } as Genre);
-}
+export const createGenre = async (input: CreateGenreInput): Promise<Genre> => {
+  try {
+    // Insert genre record
+    const result = await db.insert(genresTable)
+      .values({
+        name: input.name,
+        description: input.description || null
+      })
+      .returning()
+      .execute();
+
+    return result[0];
+  } catch (error) {
+    console.error('Genre creation failed:', error);
+    throw error;
+  }
+};

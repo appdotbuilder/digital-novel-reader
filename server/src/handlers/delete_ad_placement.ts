@@ -1,6 +1,17 @@
 
+import { db } from '../db';
+import { adPlacementsTable } from '../db/schema';
+import { eq } from 'drizzle-orm';
+
 export async function deleteAdPlacement(id: number): Promise<{ success: boolean }> {
-  // This is a placeholder declaration! Real code should be implemented here.
-  // The goal of this handler is deleting an ad placement from the database.
-  return Promise.resolve({ success: true });
+  try {
+    const result = await db.delete(adPlacementsTable)
+      .where(eq(adPlacementsTable.id, id))
+      .execute();
+
+    return { success: true };
+  } catch (error) {
+    console.error('Ad placement deletion failed:', error);
+    throw error;
+  }
 }

@@ -1,17 +1,48 @@
 
+import { db } from '../db';
+import { usersTable } from '../db/schema';
 import { type UpdateUserInput, type User } from '../schema';
+import { eq } from 'drizzle-orm';
 
-export async function updateUser(input: UpdateUserInput): Promise<User> {
-  // This is a placeholder declaration! Real code should be implemented here.
-  // The goal of this handler is updating user information by admin.
-  // Should validate user exists and update only provided fields.
-  return Promise.resolve({
-    id: input.id,
-    email: input.email || 'placeholder@email.com',
-    username: input.username || 'placeholder_username',
-    password_hash: 'placeholder_hash',
-    is_admin: input.is_admin || false,
-    created_at: new Date(),
-    updated_at: new Date()
-  } as User);
-}
+export const updateUser = async (input: UpdateUserInput): Promise<User> => {
+  try {
+    // Check if user exists
+    const existingUser = await db.select()
+      .from(usersTable)
+      .where(eq(usersTable.id, input.id))
+      .execute();
+
+    if (existingUser.length === 0) {
+      throw new Error(`User with id ${input.id} not found`);
+    }
+
+    // Build update object with only provided fields
+    const updateData: any = {
+      updated_at: new Date()
+    };
+
+    if (input.email !== undefined) {
+      updateData.email = input.email;
+    }
+
+    if (input.username !== undefined) {
+      updateData.username = input.username;
+    }
+
+    if (input.is_admin !== undefined) {
+      updateData.is_admin = input.is_admin;
+    }
+
+    // Update user record
+    const result = await db.update(usersTable)
+      .set(updateData)
+      .where(eq(usersTable.id, input.id))
+      .returning()
+      .execute();
+
+    return result[0];
+  } catch (error) {
+    console.error('User update failed:', error);
+    throw error;
+  }
+};

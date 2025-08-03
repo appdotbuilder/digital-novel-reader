@@ -1,21 +1,74 @@
 
+import { db } from '../db';
+import { novelsTable, novelGenresTable, authorsTable } from '../db/schema';
 import { type UpdateNovelInput, type Novel } from '../schema';
+import { eq, and } from 'drizzle-orm';
 
-export async function updateNovel(input: UpdateNovelInput): Promise<Novel> {
-  // This is a placeholder declaration! Real code should be implemented here.
-  // The goal of this handler is updating novel information.
-  // Should handle genre associations update if genre_ids are provided.
-  return Promise.resolve({
-    id: input.id,
-    title: input.title || 'placeholder_title',
-    description: input.description || 'placeholder_description',
-    author_id: input.author_id || 1,
-    cover_image_url: input.cover_image_url || null,
-    status: input.status || 'draft',
-    is_featured: input.is_featured || false,
-    total_chapters: 0,
-    total_views: 0,
-    created_at: new Date(),
-    updated_at: new Date()
-  } as Novel);
-}
+export const updateNovel = async (input: UpdateNovelInput): Promise<Novel> => {
+  try {
+    // First verify the novel exists
+    const existingNovel = await db.select()
+      .from(novelsTable)
+      .where(eq(novelsTable.id, input.id))
+      .execute();
+
+    if (existingNovel.length === 0) {
+      throw new Error(`Novel with id ${input.id} not found`);
+    }
+
+    // If author_id is being updated, verify the author exists
+    if (input.author_id !== undefined) {
+      const author = await db.select()
+        .from(authorsTable)
+        .where(eq(authorsTable.id, input.author_id))
+        .execute();
+
+      if (author.length === 0) {
+        throw new Error(`Author with id ${input.author_id} not found`);
+      }
+    }
+
+    // Update the novel record
+    const updateData: any = {};
+    if (input.title !== undefined) updateData.title = input.title;
+    if (input.description !== undefined) updateData.description = input.description;
+    if (input.author_id !== undefined) updateData.author_id = input.author_id;
+    if (input.cover_image_url !== undefined) updateData.cover_image_url = input.cover_image_url;
+    if (input.status !== undefined) updateData.status = input.status;
+    if (input.is_featured !== undefined) updateData.is_featured = input.is_featured;
+
+    // Always update the updated_at timestamp
+    updateData.updated_at = new Date();
+
+    const result = await db.update(novelsTable)
+      .set(updateData)
+      .where(eq(novelsTable.id, input.id))
+      .returning()
+      .execute();
+
+    // Handle genre associations if provided
+    if (input.genre_ids !== undefined) {
+      // Delete existing genre associations
+      await db.delete(novelGenresTable)
+        .where(eq(novelGenresTable.novel_id, input.id))
+        .execute();
+
+      // Insert new genre associations
+      if (input.genre_ids.length > 0) {
+        const genreInserts = input.genre_ids.map(genre_id => ({
+          novel_id: input.id,
+          genre_id: genre_id
+        }));
+
+        await db.insert(novelGenresTable)
+          .values(genreInserts)
+          .execute();
+      }
+    }
+
+    return result[0];
+  } catch (error) {
+    console.error('Novel update failed:', error);
+    throw error;
+  }
+};
